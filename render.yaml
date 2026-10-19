@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ivr-mortage
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm test
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 22
+      - key: IVR_PATH_SECRET
+        generateValue: true

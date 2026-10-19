@@ -1,0 +1,9 @@
+{
+  "name": "ivr-mortage",
+  "main": "src/worker.js",
+  "compatibility_date": "2026-10-19",
+  "workers_dev": true,
+  "observability": {
+    "enabled": false
+  }
+}

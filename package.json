@@ -1,0 +1,16 @@
+{
+  "name": "technoline-mortgage-ivr",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Hebrew mortgage savings estimate through Technoline Module API",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test",
+    "build:worker": "node scripts/build-worker.js",
+    "test:portable": "node --test --test-skip-pattern=\"real HTTP\""
+  }
+}
