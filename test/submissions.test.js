@@ -60,14 +60,14 @@ test('HTML response and rejected Google payload are failures, not saved rows', a
 
 test('Apps Script saves one row, deduplicates callbacks and verifies secrets', () => {
   const rows=[];let locked=false;
-  const headers=['מזהה פנייה','תאריך ושעה','טלפון המתקשר','שלוחה','לפני כמה שנים נלקחה','תקופת המשכנתא המקורית','סכום המשכנתא המקורי','שנים שנותרו','אומדן חיסכון','הערות'];
+  const headers=['מזהה פנייה','תאריך ושעה','טלפון המתקשר','שלוחה','לפני כמה שנים נלקחה','תקופת המשכנתא המקורית','סכום המשכנתא המקורי','שנים שנותרו','אומדן חיסכון','הערות','סטטוס','שלב אחרון','דירוג סטטוס'];
   const sheet={
     getLastRow:()=>rows.length+1,getMaxRows:()=>1000,
     getFilter:()=>null,
     getRange:(r,c,n,w)=>({
-      getValues:()=>[headers],
-      createTextFinder:id=>({matchEntireCell:()=>({findNext:()=>rows.some(row=>row[0]===id)?{}:null})}),
-      setNumberFormat:()=>{},setValues:value=>{rows.push(value[0]);}
+      getValues:()=>[r === 1 ? headers : rows[r-2]],
+      createTextFinder:id=>({matchEntireCell:()=>({findNext:()=>rows.some(row=>row[0]===id)?{getRow:()=>rows.findIndex(row=>row[0]===id)+2}:null})}),
+      setNumberFormat:()=>{},setValues:value=>{rows[r-2]=value[0];}
     })
   };
   const context=vm.createContext({
@@ -87,4 +87,16 @@ test('Apps Script saves one row, deduplicates callbacks and verifies secrets', (
   assert.equal(rows.length,1);
   assert.equal(rows[0][8],40000);
   assert.equal(locked,false);
+  const send = lead => context.doPost({postData:{contents:JSON.stringify({secret:env.SHEETS_SHARED_SECRET,lead})}});
+  const requested = {...lead, status:'ביקש לחזור אליו',statusRank:3,stage:'callback_requested'};
+  assert.equal(send(requested).ok,true);
+  assert.equal(rows.length,1);
+  assert.equal(rows[0][10],'ביקש לחזור אליו');
+  assert.equal(send(lead).duplicate,true);
+  assert.equal(rows[0][10],'ביקש לחזור אליו');
+  const partial = submissionFrom({...params,mr_amount:'',PBXcallStatus:'HANGUP',mr_submission_id:'partial-123456789012345'});
+  assert.equal(send(partial).ok,true);
+  assert.equal(rows[1][6],'');
+  assert.equal(rows[1][8],'');
+  assert.equal(rows[1][10],'נותק באמצע');
 });

@@ -67,15 +67,19 @@ export function handleCall(params) {
     ? retry(2, params, 'סכום המשכנתא אינו תקין. יש להקיש סכום חיובי בספרות בלבד.')
     : question(2);
 
-  const { remaining, savings } = estimate({ elapsed, term, amount });
-  const files = remaining === 0
-    ? [text('לפי הנתונים שמסרתם, תקופת המשכנתא הסתיימה, ולכן אומדן החיסכון במחשבון הוא אפס שקלים. תודה ולהתראות.')]
-    : [
-      text('לפי הנתונים שמסרתם, מספר השנים שנותרו לתשלום הוא'),
-      { number: String(remaining) },
-      text('ואומדן החיסכון ממיחזור המשכנתא הוא'),
+  if (params.mr_callback === '1') return {
+    type: 'goTo', goTo: '2', addParams: { mr_stage: 'callback_requested' }
+  };
+  if (Object.hasOwn(params, 'mr_callback')) return { type: 'hangup' };
+  const { savings } = estimate({ elapsed, term, amount });
+  return {
+    type: 'getDTMF', name: 'mr_callback', min: 1, max: 1, timeout: 10,
+    skipKey: '#', skipValue: 'NO', confirmType: 'no',
+    files: [
+      text('אומדן החיסכון שלכם הוא'),
       { number: String(savings) },
-      text('שקלים. זהו אומדן בלבד, לפי מודל קבוע המבוסס על הסכום המקורי והשנים שנותרו. החיסכון בפועל מצריך בדיקה אישית של יתרת ההלוואה, הריביות והעלויות. תודה ולהתראות.')
-    ];
-  return { type: 'simpleMessage', files, addParams: { mr_stage: 'done' } };
+      text('שקלים. הסכום כפוף לבדיקה. לבדיקה ללא עלות הקש כעת 1.')
+    ],
+    addParams: { mr_stage: 'offer' }
+  };
 }

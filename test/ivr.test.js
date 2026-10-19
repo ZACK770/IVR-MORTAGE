@@ -21,9 +21,10 @@ test('full named-answer callback chain, result, then hangup', () => {
     p[name] = answer;
   }
   const result = handleCall(p);
-  assert.equal(result.type, 'simpleMessage');
+  assert.equal(result.type, 'getDTMF');
+  assert.equal(result.name, 'mr_callback');
   assert.ok(result.files.some(f => Number(f.number) === 200000));
-  Object.assign(p, result.addParams);
+  Object.assign(p, result.addParams, { mr_callback: 'NO' });
   assert.deepEqual(handleCall(p), { type: 'hangup' });
 });
 
@@ -50,7 +51,7 @@ test('invalid attempts terminate after three errors', () => {
 
 test('completed mortgage announces zero without a false savings claim', () => {
   const r = handleCall({ mr_elapsed: '20', mr_term: '20', mr_amount: '100000' });
-  assert.match(r.files[0].text, /אפס/);
+  assert.ok(r.files.some(f => f.number === '0'));
 });
 
 test('real HTTP: private URL, UTF-8 JSON, no cache, health and invalid requests', async () => {

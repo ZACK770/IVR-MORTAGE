@@ -3,18 +3,24 @@ import { logEvent } from './logger.js';
 
 export function submissionFrom(params) {
   const elapsed = integer(params.mr_elapsed, 0, 40);
-  const term = integer(params.mr_term, 1, 40);
-  const amount = integer(params.mr_amount, 1, 99999999);
-  if (elapsed === null || term === null || amount === null || term < elapsed) return null;
+  let term = integer(params.mr_term, 1, 40);
+  if (elapsed === null || (term !== null && term < elapsed)) term = null;
+  const amount = term === null ? null : integer(params.mr_amount, 1, 99999999);
+  const complete = elapsed !== null && term !== null && amount !== null;
+  if (!complete && params.PBXcallStatus !== 'HANGUP') return null;
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(params.mr_submission_id || '')) return null;
-  const result = estimate({ elapsed, term, amount });
+  const result = complete ? estimate({ elapsed, term, amount }) : { remaining: null, savings: null };
+  const requested = complete && (params.mr_callback === '1' || params.mr_stage === 'callback_requested');
+  const status = requested ? 'ביקש לחזור אליו' : complete ? 'השלים פרטים' : 'נותק באמצע';
+  const statusRank = requested ? 3 : complete ? 2 : 1;
+  const stage = requested ? 'callback_requested' : complete ? 'offer' : elapsed === null ? 'mr_elapsed' : term === null ? 'mr_term' : 'mr_amount';
   const caller = String(params.PBXphone || params.caller || params.mr_caller || '').slice(0, 40);
   const extension = String(params.PBXextensionPath || params.PBXextensionId || params.extension || '').slice(0, 100);
   const date = new Date(params.mr_started_at || '');
   return {
     id: params.mr_submission_id,
     receivedAt: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),
-    caller, extension, elapsed, term, amount, ...result
+    caller, extension, elapsed, term, amount, ...result, status, statusRank, stage
   };
 }
 
@@ -42,7 +48,8 @@ export async function deliverSubmission(lead, env, fetcher = fetch, pause = ms =
         logEvent('sheets_retry', lead.id, { code: 'HTTP_ERROR', status: response.status, attempt: attempt + 1 });
       } else {
         let body;
-        try { body = await response.json(); } catch {
+        const responseText = await response.text();
+        try { body = JSON.parse(responseText); } catch {
           logEvent('sheets_retry', lead.id, { code: 'NON_JSON_RESPONSE', attempt: attempt + 1 });
         }
         if (body?.ok === true && body.id === lead.id) {

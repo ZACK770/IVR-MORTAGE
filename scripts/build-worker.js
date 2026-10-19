@@ -5,8 +5,9 @@ const submissions = readFileSync(new URL('../src/submissions.js', import.meta.ur
   .replace(/^import .*;\r?\n/gm, '')
   .replaceAll('export function ', 'function ')
   .replaceAll('export async function ', 'async function ');
+const email = readFileSync(new URL('../src/email.js', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, '').replaceAll('export function ', 'function ').replaceAll('export async function ', 'async function ');
 const worker = readFileSync(new URL('../src/worker.js', import.meta.url), 'utf8').replace(/^import .*;\r?\n/gm, '');
 const target = new URL('../dist/', import.meta.url);
 mkdirSync(target, { recursive: true });
-writeFileSync(new URL('worker.js', target), flow + '\n' + logger + '\n' + submissions + '\n' + worker);
+writeFileSync(new URL('worker.js', target), flow + '\n' + logger + '\n' + submissions + '\n' + email + '\n' + worker);
 console.log('Built dist/worker.js for the Cloudflare dashboard');

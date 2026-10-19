@@ -67,17 +67,21 @@ function handleCall(params) {
     ? retry(2, params, 'סכום המשכנתא אינו תקין. יש להקיש סכום חיובי בספרות בלבד.')
     : question(2);
 
-  const { remaining, savings } = estimate({ elapsed, term, amount });
-  const files = remaining === 0
-    ? [text('לפי הנתונים שמסרתם, תקופת המשכנתא הסתיימה, ולכן אומדן החיסכון במחשבון הוא אפס שקלים. תודה ולהתראות.')]
-    : [
-      text('לפי הנתונים שמסרתם, מספר השנים שנותרו לתשלום הוא'),
-      { number: String(remaining) },
-      text('ואומדן החיסכון ממיחזור המשכנתא הוא'),
+  if (params.mr_callback === '1') return {
+    type: 'goTo', goTo: '2', addParams: { mr_stage: 'callback_requested' }
+  };
+  if (Object.hasOwn(params, 'mr_callback')) return { type: 'hangup' };
+  const { savings } = estimate({ elapsed, term, amount });
+  return {
+    type: 'getDTMF', name: 'mr_callback', min: 1, max: 1, timeout: 10,
+    skipKey: '#', skipValue: 'NO', confirmType: 'no',
+    files: [
+      text('אומדן החיסכון שלכם הוא'),
       { number: String(savings) },
-      text('שקלים. זהו אומדן בלבד, לפי מודל קבוע המבוסס על הסכום המקורי והשנים שנותרו. החיסכון בפועל מצריך בדיקה אישית של יתרת ההלוואה, הריביות והעלויות. תודה ולהתראות.')
-    ];
-  return { type: 'simpleMessage', files, addParams: { mr_stage: 'done' } };
+      text('שקלים. הסכום כפוף לבדיקה. לבדיקה ללא עלות הקש כעת 1.')
+    ],
+    addParams: { mr_stage: 'offer' }
+  };
 }
 
 function logEvent(event, id = '', details = {}) {
@@ -92,18 +96,24 @@ function logEvent(event, id = '', details = {}) {
 
 function submissionFrom(params) {
   const elapsed = integer(params.mr_elapsed, 0, 40);
-  const term = integer(params.mr_term, 1, 40);
-  const amount = integer(params.mr_amount, 1, 99999999);
-  if (elapsed === null || term === null || amount === null || term < elapsed) return null;
+  let term = integer(params.mr_term, 1, 40);
+  if (elapsed === null || (term !== null && term < elapsed)) term = null;
+  const amount = term === null ? null : integer(params.mr_amount, 1, 99999999);
+  const complete = elapsed !== null && term !== null && amount !== null;
+  if (!complete && params.PBXcallStatus !== 'HANGUP') return null;
   if (!/^[A-Za-z0-9_-]{16,100}$/.test(params.mr_submission_id || '')) return null;
-  const result = estimate({ elapsed, term, amount });
+  const result = complete ? estimate({ elapsed, term, amount }) : { remaining: null, savings: null };
+  const requested = complete && (params.mr_callback === '1' || params.mr_stage === 'callback_requested');
+  const status = requested ? 'ביקש לחזור אליו' : complete ? 'השלים פרטים' : 'נותק באמצע';
+  const statusRank = requested ? 3 : complete ? 2 : 1;
+  const stage = requested ? 'callback_requested' : complete ? 'offer' : elapsed === null ? 'mr_elapsed' : term === null ? 'mr_term' : 'mr_amount';
   const caller = String(params.PBXphone || params.caller || params.mr_caller || '').slice(0, 40);
   const extension = String(params.PBXextensionPath || params.PBXextensionId || params.extension || '').slice(0, 100);
   const date = new Date(params.mr_started_at || '');
   return {
     id: params.mr_submission_id,
     receivedAt: Number.isNaN(date.getTime()) ? new Date().toISOString() : date.toISOString(),
-    caller, extension, elapsed, term, amount, ...result
+    caller, extension, elapsed, term, amount, ...result, status, statusRank, stage
   };
 }
 
@@ -131,7 +141,8 @@ async function deliverSubmission(lead, env, fetcher = fetch, pause = ms => new P
         logEvent('sheets_retry', lead.id, { code: 'HTTP_ERROR', status: response.status, attempt: attempt + 1 });
       } else {
         let body;
-        try { body = await response.json(); } catch {
+        const responseText = await response.text();
+        try { body = JSON.parse(responseText); } catch {
           logEvent('sheets_retry', lead.id, { code: 'NON_JSON_RESPONSE', attempt: attempt + 1 });
         }
         if (body?.ok === true && body.id === lead.id) {
@@ -159,6 +170,51 @@ async function deliverSubmission(lead, env, fetcher = fetch, pause = ms => new P
 }
 
 
+function shouldEmail(params, module) {
+  // Send at the choice/exit, not while the savings offer is still playing.
+  // A subsequent HANGUP after goTo must not generate another notification.
+  if (params.mr_stage === 'callback_requested') return false;
+  return module.type === 'goTo' || params.PBXcallStatus === 'HANGUP';
+}
+
+function emailContent(lead) {
+  const value = v => v === null || v === undefined || v === '' ? 'לא נמסר' : String(v);
+  const labels = {mr_elapsed:'שאלה 1 — מועד לקיחת המשכנתא',mr_term:'שאלה 2 — תקופת המשכנתא',mr_amount:'שאלה 3 — סכום המשכנתא',offer:'סיום השאלון',callback_requested:'בקשת חזרה ומעבר לשלוחה 2'};
+  const rows = [
+    ['סטטוס',lead.status], ['טלפון',lead.caller], ['מועד תחילת השיחה',lead.receivedAt],
+    ['שלוחה',lead.extension], ['לפני כמה שנים נלקחה',lead.elapsed],
+    ['תקופה מקורית בשנים',lead.term], ['סכום מקורי בשקלים',lead.amount],
+    ['שנים שנותרו',lead.remaining], ['אומדן חיסכון בשקלים',lead.savings],
+    ['שלב אחרון',labels[lead.stage] || lead.stage], ['מזהה שיחה',lead.id]
+  ];
+  const escape = v => value(v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return {
+    subject: 'פניית משכנתא — ' + lead.status,
+    text: rows.map(([k,v])=>k+': '+value(v)).join('\n'),
+    html: '<div dir="rtl" lang="he"><h2>פנייה מהמערכת הטלפונית</h2><table>' + rows.map(([k,v])=>'<tr><th align="right">'+escape(k)+'</th><td>'+escape(v)+'</td></tr>').join('')+'</table></div>'
+  };
+}
+
+async function deliverEmail(lead, env) {
+  const address = /^[^\s<>@]+@[^\s<>@]+\.[^\s<>@]+$/;
+  if (!env?.EMAIL?.send || !address.test(env.EMAIL_FROM || '') || !address.test(env.EMAIL_TO || '')) {
+    logEvent('email_failed', lead.id, {code:'INVALID_EMAIL_CONFIG'});
+    return false;
+  }
+  logEvent('email_attempt',lead.id,{stage:lead.stage});
+  try {
+    await env.EMAIL.send({from:env.EMAIL_FROM,to:env.EMAIL_TO,...emailContent(lead)});
+    // Accepted by Cloudflare; this is not proof of inbox delivery.
+    logEvent('email_accepted',lead.id,{stage:lead.stage});
+    return true;
+  } catch(error) {
+    const codes=['E_SENDER_NOT_VERIFIED','E_RECIPIENT_NOT_ALLOWED','E_RECIPIENT_SUPPRESSED','E_SENDER_DOMAIN_NOT_AVAILABLE','E_DELIVERY_FAILED','E_RATE_LIMIT_EXCEEDED','E_DAILY_LIMIT_EXCEEDED','E_INTERNAL_SERVER_ERROR','E_VALIDATION_ERROR'];
+    logEvent('email_failed',lead.id,{stage:lead.stage,code:codes.includes(error?.code)?error.code:'SEND_FAILED'});
+    return false;
+  }
+}
+
+
 function json(body, status = 200, extraHeaders = {}) {
   return new Response(JSON.stringify(body), {
     status,
@@ -181,7 +237,7 @@ export default {
       }
       const url = new URL(request.url);
       if (url.pathname === '/healthz' && request.method === 'GET') {
-        return json({ status: 'ok', version: '1.2.0', sheetsConfigured: Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET) });
+        return json({ status: 'ok', version: '1.3.0', sheetsConfigured: Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET), emailConfigured: Boolean(env?.EMAIL?.send && env?.EMAIL_FROM && env?.EMAIL_TO) });
       }
       const secret = env?.IVR_PATH_SECRET || '';
       if (secret && !/^[A-Za-z0-9_-]{24,}$/.test(secret)) {
@@ -222,10 +278,19 @@ export default {
         };
       }
       const lead = submissionFrom(params);
+      if (lead) logEvent('lead_ready', id, { stage: lead.stage, code: lead.statusRank === 3 ? 'CALLBACK_REQUESTED' : lead.statusRank === 2 ? 'COMPLETED' : 'ABANDONED' });
       const response = json(module);
-      if (lead && !env.SHEETS_WEBHOOK_URL) logEvent('sheets_skipped', id, { code: 'NOT_CONFIGURED' });
-      if (lead && env.SHEETS_WEBHOOK_URL) {
-        const delivery = deliverSubmission(lead, env);
+      const deliveries = [];
+      if (lead && env?.SHEETS_WEBHOOK_URL) deliveries.push(deliverSubmission(lead, env));
+      if (lead && shouldEmail(params, module)) {
+        if (env?.EMAIL?.send) deliveries.push(deliverEmail(lead, env));
+        else logEvent('email_skipped', id, { code: 'NOT_CONFIGURED' });
+      }
+      if (lead && !env?.SHEETS_WEBHOOK_URL && !env?.EMAIL?.send) {
+        logEvent('delivery_skipped', id, { code: 'NOT_CONFIGURED' });
+      }
+      if (deliveries.length) {
+        const delivery = Promise.allSettled(deliveries);
         if (ctx?.waitUntil) ctx.waitUntil(delivery);
         else return delivery.then(() => response);
       }
