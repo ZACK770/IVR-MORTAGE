@@ -18,7 +18,7 @@ test('Worker: complete phone call through real Request/Response objects', async 
   }
   const result = await invoke('?' + p).json();
   assert.equal(result.type, 'simpleMessage');
-  assert.ok(result.files.some(f => f.number === 40000));
+  assert.ok(result.files.some(f => Number(f.number) === 40000));
   for (const [key, value] of Object.entries(result.addParams)) p.set(key, value);
   assert.deepEqual(await invoke('?' + p).json(), { type: 'hangup' });
 });
@@ -41,6 +41,6 @@ test('Worker: interleaved calls remain isolated', async () => {
   const b = '?mr_elapsed=10&mr_term=20&mr_amount=500000';
   const results = await Promise.all([invoke(a).json(), invoke(b).json(), invoke(a).json()]);
   for (const [i, value] of [40000, 100000, 40000].entries()) {
-    assert.ok(results[i].files.some(f => f.number === value));
+    assert.ok(results[i].files.some(f => Number(f.number) === value));
   }
 });

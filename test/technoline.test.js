@@ -22,7 +22,7 @@ test('Technoline actual callback shape: root URL, no secrets, UTF-8, full flow a
   p.set(field,value);
  }
  const module=await worker.fetch(new Request('https://example.workers.dev/?'+p),{}).json();
- assert.equal(module.type,'simpleMessage');assert.ok(module.files.some(f=>f.number===40000));
+ assert.equal(module.type,'simpleMessage');assert.ok(module.files.some(f=>Number(f.number) ===40000));
  const lead=submissionFrom(Object.fromEntries(p));
  assert.equal(lead.caller,'0500000000');assert.equal(lead.extension,'/1');
  assert.equal(lead.id,call.get('PBXcallId'));
@@ -35,4 +35,11 @@ test('Technoline invalid term repeats second question; health reports version',a
  assert.equal(module.name,'mr_term');assert.deepEqual(module.removeParams,['mr_term','mr_amount']);
  const health=await worker.fetch(new Request('https://example.workers.dev/healthz'),{}).json();
  assert.equal(health.version,'1.2.0');assert.equal(health.sheetsConfigured,false);
+});
+
+test('Technoline documented skip key and hangup callback are handled explicitly',async()=>{
+ const first=await worker.fetch(new Request('https://example.workers.dev/?'+call),{}).json();
+ assert.equal(first.skipKey,'#');assert.equal(first.confirmType,'number');
+ const p=new URLSearchParams(call);p.set('PBXcallStatus','HANGUP');
+ assert.deepEqual(await worker.fetch(new Request('https://example.workers.dev/?'+p),{}).json(),{type:'hangup'});
 });

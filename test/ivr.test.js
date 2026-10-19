@@ -22,7 +22,7 @@ test('full named-answer callback chain, result, then hangup', () => {
   }
   const result = handleCall(p);
   assert.equal(result.type, 'simpleMessage');
-  assert.ok(result.files.some(f => f.number === 200000));
+  assert.ok(result.files.some(f => Number(f.number) === 200000));
   Object.assign(p, result.addParams);
   assert.deepEqual(handleCall(p), { type: 'hangup' });
 });
@@ -67,7 +67,7 @@ test('real HTTP: private URL, UTF-8 JSON, no cache, health and invalid requests'
     assert.equal(response.headers.get('cache-control'), 'no-store');
     assert.equal((await response.json()).name, 'mr_elapsed');
     const final = await fetch(base + '/ivr/' + secret + '?mr_elapsed=5&mr_term=25&mr_amount=100000');
-    assert.ok((await final.json()).files.some(f => f.number === 40000));
+    assert.ok((await final.json()).files.some(f => Number(f.number) === 40000));
     assert.equal((await fetch(base + '/ivr/' + secret + '?mr_elapsed=1&mr_elapsed=2')).status, 400);
     assert.equal((await fetch(base + '/ivr/' + secret, { method:'POST' })).status, 405);
   } finally {

@@ -28,7 +28,8 @@ function question(index, prefix = '') {
   return {
     type: 'getDTMF', name: FIELDS[index],
     files: [text(prefix + prompts[index])],
-    min: 1, max: index === 2 ? 8 : 2, timeout: 10
+    min: 1, max: index === 2 ? 8 : 2, timeout: 10,
+    skipKey: '#', skipValue: 'ERROR', confirmType: 'number'
   };
 }
 
@@ -49,6 +50,7 @@ function retry(index, params, message) {
 // Technoline resends named answers with paramsMode=chain.
 // No memory, database, caller number, or session cookie is needed.
 export function handleCall(params) {
+  if (params.PBXcallStatus === 'HANGUP') return { type: 'hangup' };
   if (params.mr_stage === 'done') return { type: 'hangup' };
   const elapsed = integer(params.mr_elapsed, 0, 40);
   if (elapsed === null) return own(params, 'mr_elapsed')
@@ -70,9 +72,9 @@ export function handleCall(params) {
     ? [text('לפי הנתונים שמסרתם, תקופת המשכנתא הסתיימה, ולכן אומדן החיסכון במחשבון הוא אפס שקלים. תודה ולהתראות.')]
     : [
       text('לפי הנתונים שמסרתם, מספר השנים שנותרו לתשלום הוא'),
-      { number: remaining },
+      { number: String(remaining) },
       text('ואומדן החיסכון ממיחזור המשכנתא הוא'),
-      { number: savings },
+      { number: String(savings) },
       text('שקלים. זהו אומדן בלבד, לפי מודל קבוע המבוסס על הסכום המקורי והשנים שנותרו. החיסכון בפועל מצריך בדיקה אישית של יתרת ההלוואה, הריביות והעלויות. תודה ולהתראות.')
     ];
   return { type: 'simpleMessage', files, addParams: { mr_stage: 'done' } };
