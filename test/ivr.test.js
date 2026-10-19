@@ -28,7 +28,7 @@ test('full named-answer callback chain, result, then hangup', () => {
 });
 
 test('validation rejects malformed values and clears stale downstream answers', () => {
-  for (const value of ['', '-1', '2.5', '1e2', ' 5', '41', '����']) {
+  for (const value of ['', '-1', '2.5', '1e2', ' 5', '41', 'שלום']) {
     const r = handleCall({ mr_elapsed: value, mr_term: '25', mr_amount: '500000' });
     assert.equal(r.name, 'mr_elapsed');
     assert.deepEqual(r.removeParams, ['mr_elapsed','mr_term','mr_amount']);
@@ -50,7 +50,7 @@ test('invalid attempts terminate after three errors', () => {
 
 test('completed mortgage announces zero without a false savings claim', () => {
   const r = handleCall({ mr_elapsed: '20', mr_term: '20', mr_amount: '100000' });
-  assert.match(r.files[0].text, /���/);
+  assert.match(r.files[0].text, /אפס/);
 });
 
 test('real HTTP: private URL, UTF-8 JSON, no cache, health and invalid requests', async () => {

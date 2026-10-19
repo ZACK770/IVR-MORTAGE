@@ -24,7 +24,8 @@ test('Worker: complete phone call through real Request/Response objects', async 
 });
 
 test('Worker: fail closed without secret and with unknown path', async () => {
-  assert.equal(worker.fetch(new Request(base), {}).status, 503);
+  assert.equal(worker.fetch(new Request(base), {}).status, 404);
+  assert.equal(worker.fetch(new Request('https://example.workers.dev/'), {}).status, 200);
   assert.equal(worker.fetch(new Request('https://example.workers.dev/ivr'), env).status, 404);
   assert.equal(worker.fetch(new Request('https://example.workers.dev/healthz'), env).status, 200);
 });
