@@ -4,6 +4,11 @@ import {GoogleSheetsClient,SheetsWriter,SHEET_HEADERS,leadCells,shouldReplaceRow
 
 const lead={id:'sheet-test-1234567890123',receivedAt:'2026-10-20T10:00:00Z',caller:'0500000000',extension:'/1',elapsed:5,term:25,amount:100000,remaining:20,savings:40000,status:'השלים פרטים',statusRank:2,stage:'offer'};
 const rowValues=lead=>leadCells(lead).map(c=>c.userEnteredValue.numberValue??c.userEnteredValue.stringValue);
+test('default fetch adapter does not bind the Cloudflare global function to the client',async()=>{
+ const original=globalThis.fetch;
+ globalThis.fetch=function(){assert.ok(this===undefined||this===globalThis);return Promise.resolve(Response.json({ok:true}));};
+ try{const client=new GoogleSheetsClient({});assert.equal((await client.fetcher('https://example.com')).status,200);}finally{globalThis.fetch=original;}
+});
 test('sheet cells preserve phone and external strings as literals, local date and missing values',()=>{
  const cells=leadCells({...lead,caller:'=1+1'});
  assert.equal(cells[2].userEnteredValue.stringValue,'=1+1');

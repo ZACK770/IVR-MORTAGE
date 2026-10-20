@@ -23,7 +23,7 @@ export function shouldReplaceRow(existing, lead) {
 }
 
 export class GoogleSheetsClient {
-  constructor(env, fetcher = fetch) { this.env=env; this.fetcher=fetcher; this.token=null; }
+  constructor(env, fetcher = (url, options) => fetch(url, options)) { this.env=env; this.fetcher=fetcher; this.token=null; }
   async accessToken() {
     if (this.token && this.token.expires > Date.now()+60000) return this.token.value;
     const sa=JSON.parse(this.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -106,7 +106,8 @@ export class SheetsWriter {
         logEvent('sheets_saved',lead.id,{stage:lead.stage,code:result.duplicate?'UNCHANGED':'WRITTEN'});
       }catch(error){
         const allowed=['GOOGLE_CREDENTIALS_INVALID','GOOGLE_AUTH_FAILED','SHEETS_PERMISSION_DENIED','SHEETS_RATE_LIMIT','SHEETS_API_ERROR','MISSING_SHEET','HEADER_MISMATCH'];
-        logEvent('sheets_failed',lead.id,{code:allowed.includes(error?.code)?error.code:'NETWORK_OR_RUNTIME_ERROR',status:error?.status||0});
+        const runtimeCode = error?.message === 'Illegal invocation' ? 'FETCH_RECEIVER_ERROR' : error?.name === 'SyntaxError' ? 'GOOGLE_CREDENTIALS_JSON_ERROR' : ['DataError','OperationError'].includes(error?.name) ? 'GOOGLE_KEY_ERROR' : 'NETWORK_OR_RUNTIME_ERROR';
+        logEvent('sheets_failed',lead.id,{code:allowed.includes(error?.code)?error.code:runtimeCode,status:error?.status||0});
         break;
       }
     }

@@ -21,7 +21,7 @@ test('full named-answer callback chain, result, then hangup', () => {
     p[name] = answer;
   }
   const result = handleCall(p);
-  assert.equal(result.type, 'getDTMF');
+  assert.equal(result.type, 'simpleMenu');
   assert.equal(result.name, 'mr_callback');
   assert.ok(result.files.some(f => Number(f.number) === 200000));
   Object.assign(p, result.addParams, { mr_callback: 'NO' });

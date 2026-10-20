@@ -9,9 +9,10 @@ const base={PBXcallId:'test-12345678901234567',mr_submission_id:'test-1234567890
 test('offer is short, 1 transfers to extension 2, other choices end the call',()=>{
  const offer=handleCall(base);
  assert.equal(offer.name,'mr_callback');
- assert.equal(offer.confirmType,'no');
+ assert.equal(offer.type,'simpleMenu');
+ assert.equal(offer.enabledKeys,'1');
  assert.ok(offer.files.map(f=>f.text||'').join(' ').length<130);
- assert.deepEqual(handleCall({...base,mr_callback:'1'}),{type:'goTo',goTo:'2',addParams:{mr_stage:'callback_requested'}});
+ assert.deepEqual(handleCall({...base,mr_callback:'1'}),{type:'goTo',extensionPathChange:'/2',addParams:{mr_stage:'callback_requested'}});
  assert.deepEqual(handleCall({...base,mr_callback:'2'}),{type:'hangup'});
  assert.deepEqual(handleCall({...base,mr_callback:'NO'}),{type:'hangup'});
  assert.equal(submissionFrom({...base,mr_callback:'1'}).status,'ביקש לחזור אליו');

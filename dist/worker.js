@@ -68,17 +68,17 @@ function handleCall(params) {
     : question(2);
 
   if (params.mr_callback === '1') return {
-    type: 'goTo', goTo: '2', addParams: { mr_stage: 'callback_requested' }
+    type: 'goTo', extensionPathChange: '/2', addParams: { mr_stage: 'callback_requested' }
   };
   if (Object.hasOwn(params, 'mr_callback')) return { type: 'hangup' };
   const { savings } = estimate({ elapsed, term, amount });
   return {
-    type: 'getDTMF', name: 'mr_callback', min: 1, max: 1, timeout: 10,
-    skipKey: '#', skipValue: 'NO', confirmType: 'no',
+    type: 'simpleMenu', name: 'mr_callback', enabledKeys: '1', times: 2, timeout: 10,
+    errorReturn: 'NO', setMusic: 'no',
     files: [
       text('אומדן החיסכון שלכם הוא'),
       { number: String(savings) },
-      text('שקלים. הסכום כפוף לבדיקה. לבדיקה ללא עלות הקש כעת 1.')
+      text('שקלים. הסכום כפוף לבדיקה. לבדיקה מקצועית על ידי נציג, הקישו 1.')
     ],
     addParams: { mr_stage: 'offer' }
   };
@@ -238,7 +238,7 @@ function shouldReplaceRow(existing, lead) {
 }
 
 class GoogleSheetsClient {
-  constructor(env, fetcher = fetch) { this.env=env; this.fetcher=fetcher; this.token=null; }
+  constructor(env, fetcher = (url, options) => fetch(url, options)) { this.env=env; this.fetcher=fetcher; this.token=null; }
   async accessToken() {
     if (this.token && this.token.expires > Date.now()+60000) return this.token.value;
     const sa=JSON.parse(this.env.GOOGLE_SERVICE_ACCOUNT_JSON);
@@ -321,7 +321,8 @@ export class SheetsWriter {
         logEvent('sheets_saved',lead.id,{stage:lead.stage,code:result.duplicate?'UNCHANGED':'WRITTEN'});
       }catch(error){
         const allowed=['GOOGLE_CREDENTIALS_INVALID','GOOGLE_AUTH_FAILED','SHEETS_PERMISSION_DENIED','SHEETS_RATE_LIMIT','SHEETS_API_ERROR','MISSING_SHEET','HEADER_MISMATCH'];
-        logEvent('sheets_failed',lead.id,{code:allowed.includes(error?.code)?error.code:'NETWORK_OR_RUNTIME_ERROR',status:error?.status||0});
+        const runtimeCode = error?.message === 'Illegal invocation' ? 'FETCH_RECEIVER_ERROR' : error?.name === 'SyntaxError' ? 'GOOGLE_CREDENTIALS_JSON_ERROR' : ['DataError','OperationError'].includes(error?.name) ? 'GOOGLE_KEY_ERROR' : 'NETWORK_OR_RUNTIME_ERROR';
+        logEvent('sheets_failed',lead.id,{code:allowed.includes(error?.code)?error.code:runtimeCode,status:error?.status||0});
         break;
       }
     }
@@ -365,7 +366,7 @@ export default {
       }
       const url = new URL(request.url);
       if (url.pathname === '/healthz' && request.method === 'GET') {
-        return json({ status: 'ok', version: '1.4.0', sheetsConfigured: Boolean(env?.GOOGLE_SERVICE_ACCOUNT_JSON && env?.GOOGLE_SHEET_ID && env?.SHEETS_WRITER) || Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET), emailConfigured: Boolean(env?.EMAIL?.send && env?.EMAIL_FROM && env?.EMAIL_TO) });
+        return json({ status: 'ok', version: '1.4.1', sheetsConfigured: Boolean(env?.GOOGLE_SERVICE_ACCOUNT_JSON && env?.GOOGLE_SHEET_ID && env?.SHEETS_WRITER) || Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET), emailConfigured: Boolean(env?.EMAIL?.send && env?.EMAIL_FROM && env?.EMAIL_TO) });
       }
       const secret = env?.IVR_PATH_SECRET || '';
       if (secret && !/^[A-Za-z0-9_-]{24,}$/.test(secret)) {

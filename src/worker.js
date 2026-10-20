@@ -27,7 +27,7 @@ export default {
       }
       const url = new URL(request.url);
       if (url.pathname === '/healthz' && request.method === 'GET') {
-        return json({ status: 'ok', version: '1.4.0', sheetsConfigured: Boolean(env?.GOOGLE_SERVICE_ACCOUNT_JSON && env?.GOOGLE_SHEET_ID && env?.SHEETS_WRITER) || Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET), emailConfigured: Boolean(env?.EMAIL?.send && env?.EMAIL_FROM && env?.EMAIL_TO) });
+        return json({ status: 'ok', version: '1.4.1', sheetsConfigured: Boolean(env?.GOOGLE_SERVICE_ACCOUNT_JSON && env?.GOOGLE_SHEET_ID && env?.SHEETS_WRITER) || Boolean(env?.SHEETS_WEBHOOK_URL && env?.SHEETS_SHARED_SECRET), emailConfigured: Boolean(env?.EMAIL?.send && env?.EMAIL_FROM && env?.EMAIL_TO) });
       }
       const secret = env?.IVR_PATH_SECRET || '';
       if (secret && !/^[A-Za-z0-9_-]{24,}$/.test(secret)) {

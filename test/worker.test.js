@@ -17,7 +17,7 @@ test('Worker: complete phone call through real Request/Response objects', async 
     p.set(name, answer);
   }
   const result = await invoke('?' + p).json();
-  assert.equal(result.type, 'getDTMF');
+  assert.equal(result.type, 'simpleMenu');
   assert.equal(result.name, 'mr_callback');
   assert.ok(result.files.some(f => Number(f.number) === 40000));
   for (const [key, value] of Object.entries(result.addParams)) p.set(key, value);

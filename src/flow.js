@@ -68,17 +68,17 @@ export function handleCall(params) {
     : question(2);
 
   if (params.mr_callback === '1') return {
-    type: 'goTo', goTo: '2', addParams: { mr_stage: 'callback_requested' }
+    type: 'goTo', extensionPathChange: '/2', addParams: { mr_stage: 'callback_requested' }
   };
   if (Object.hasOwn(params, 'mr_callback')) return { type: 'hangup' };
   const { savings } = estimate({ elapsed, term, amount });
   return {
-    type: 'getDTMF', name: 'mr_callback', min: 1, max: 1, timeout: 10,
-    skipKey: '#', skipValue: 'NO', confirmType: 'no',
+    type: 'simpleMenu', name: 'mr_callback', enabledKeys: '1', times: 2, timeout: 10,
+    errorReturn: 'NO', setMusic: 'no',
     files: [
       text('אומדן החיסכון שלכם הוא'),
       { number: String(savings) },
-      text('שקלים. הסכום כפוף לבדיקה. לבדיקה ללא עלות הקש כעת 1.')
+      text('שקלים. הסכום כפוף לבדיקה. לבדיקה מקצועית על ידי נציג, הקישו 1.')
     ],
     addParams: { mr_stage: 'offer' }
   };
