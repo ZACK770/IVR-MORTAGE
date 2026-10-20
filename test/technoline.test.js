@@ -35,7 +35,7 @@ test('Technoline invalid term repeats second question; health reports version',a
  const module=await worker.fetch(new Request('https://example.workers.dev/?'+p),{}).json();
  assert.equal(module.name,'mr_term');assert.deepEqual(module.removeParams,['mr_term','mr_amount']);
  const health=await worker.fetch(new Request('https://example.workers.dev/healthz'),{}).json();
- assert.equal(health.version,'1.3.0');assert.equal(health.sheetsConfigured,false);
+ assert.equal(health.version,'1.4.0');assert.equal(health.sheetsConfigured,false);
 });
 
 test('Technoline documented skip key and hangup callback are handled explicitly',async()=>{

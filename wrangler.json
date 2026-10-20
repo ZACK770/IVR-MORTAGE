@@ -3,6 +3,14 @@
   "main": "src/worker.js",
   "compatibility_date": "2026-10-19",
   "workers_dev": true,
+  "vars": {
+    "GOOGLE_SHEET_ID": "1Ckb7dGI_jmOmpdYzB-g-qzysM7TO1xPYER15L_wgEx0",
+    "GOOGLE_SHEET_TAB": "פניות"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "SHEETS_WRITER", "class_name": "SheetsWriter" }]
+  },
+  "migrations": [{ "tag": "sheets-v1", "new_sqlite_classes": ["SheetsWriter"] }],
   "observability": {
     "enabled": true,
     "head_sampling_rate": 1,
